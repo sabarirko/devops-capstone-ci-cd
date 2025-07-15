@@ -4,33 +4,19 @@ pipeline {
     environment {
         DOCKER_IMAGE = "sabarirko/web-app"
         DOCKER_TAG = "${env.BUILD_ID}"
+        DOCKER_BUILDKIT = "1"  # Enable BuildKit
     }
     
     stages {
-        // ===== TOOL VERIFICATION =====
-        stage('Verify Tools') {
+        // ===== TOOL SETUP =====
+        stage('Setup Environment') {
             steps {
                 script {
-                    try {
-                        sh '''
-                            echo "=== Checking Required Tools ==="
-                            
-                            # Install kubectl if missing
-                            if ! command -v kubectl >/dev/null 2>&1; then
-                                echo "Installing kubectl..."
-                                curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-                                chmod +x kubectl
-                                sudo mv kubectl /usr/local/bin/
-                            fi
-                            
-                            # Verify tools
-                            git --version || { echo "Git missing"; exit 1; }
-                            docker --version || { echo "Docker missing"; exit 1; }
-                            kubectl version --client || { echo "kubectl missing"; exit 1; }
-                        '''
-                    } catch (Exception e) {
-                        error("Tool verification failed: ${e.message}")
-                    }
+                    sh '''
+                        echo "=== Configuring Docker ==="
+                        docker --version
+                        docker buildx version || docker buildx install
+                    '''
                 }
             }
         }
@@ -47,7 +33,13 @@ pipeline {
             steps {
                 script {
                     try {
-                        sh "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} ."
+                        sh """
+                            docker buildx build \
+                              -t ${DOCKER_IMAGE}:${DOCKER_TAG} \
+                              -t ${DOCKER_IMAGE}:latest \
+                              --platform linux/amd64 \
+                              --load .
+                        """
                     } catch (Exception e) {
                         error("Docker build failed: ${e.message}")
                     }
@@ -67,7 +59,6 @@ pipeline {
                         try {
                             sh """
                                 docker login -u $DOCKER_USER -p $DOCKER_PASS
-                                docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest
                                 docker push ${DOCKER_IMAGE}:${DOCKER_TAG}
                                 docker push ${DOCKER_IMAGE}:latest
                             """
@@ -87,7 +78,6 @@ pipeline {
                         try {
                             sh '''
                                 export KUBECONFIG=${KUBECONFIG}
-                                kubectl cluster-info
                                 kubectl apply -f deployment.yaml
                                 kubectl apply -f service.yaml
                                 kubectl rollout status deployment/web-app --timeout=2m
@@ -102,9 +92,6 @@ pipeline {
     }
     
     post {
-        always {
-            echo "Pipeline execution completed"
-        }
         success {
             echo "SUCCESS: App deployed to Kubernetes!"
             sh '''
