@@ -4,11 +4,10 @@ pipeline {
     environment {
         DOCKER_IMAGE = "sabarirko/web-app"
         DOCKER_TAG = "${env.BUILD_ID}"
-        DOCKER_BUILDKIT = "1"  # Enable BuildKit
+        DOCKER_BUILDKIT = "1"
     }
     
     stages {
-        // ===== TOOL SETUP =====
         stage('Setup Environment') {
             steps {
                 script {
@@ -21,14 +20,12 @@ pipeline {
             }
         }
 
-        // ===== CHECKOUT CODE =====
         stage('Checkout') {
             steps {
                 checkout scm
             }
         }
 
-        // ===== BUILD DOCKER IMAGE =====
         stage('Build') {
             steps {
                 script {
@@ -47,7 +44,6 @@ pipeline {
             }
         }
 
-        // ===== PUSH TO DOCKER HUB =====
         stage('Push') {
             steps {
                 withCredentials([usernamePassword(
@@ -70,7 +66,6 @@ pipeline {
             }
         }
 
-        // ===== KUBERNETES DEPLOYMENT =====
         stage('Deploy') {
             steps {
                 withCredentials([file(credentialsId: 'kubeconfig-secret', variable: 'KUBECONFIG')]) {
