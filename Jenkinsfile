@@ -1,10 +1,9 @@
 pipeline {
-    agent any  // This provides node context for the entire pipeline
+    agent any
     
     environment {
         DOCKER_IMAGE = "sabarirko/web-app"
         DOCKER_TAG = "${env.BUILD_ID}"
-        KUBECONFIG = credentials('kubeconfig-secret')  // Your credential ID
     }
     
     stages {
@@ -54,30 +53,22 @@ pipeline {
 
         stage('Deploy') {
             steps {
-                script {
-                    writeFile file: 'kubeconfig.yaml', text: "${env.KUBECONFIG}"
-                    sh '''
-                        export KUBECONFIG=kubeconfig.yaml
-                        kubectl cluster-info
-                        kubectl apply -f deployment.yaml
-                        kubectl apply -f service.yaml
-                        kubectl rollout status deployment/web-app --timeout=2m
-                        rm -f kubeconfig.yaml
-                    '''
+                withCredentials([file(credentialsId: 'kubeconfig-secret', variable: 'KUBECONFIG')]) {
+                    script {
+                        sh '''
+                            export KUBECONFIG=$KUBECONFIG
+                            kubectl cluster-info
+                            kubectl apply -f deployment.yaml
+                            kubectl apply -f service.yaml
+                            kubectl rollout status deployment/web-app --timeout=2m
+                        '''
+                    }
                 }
             }
         }
     }
     
     post {
-        always {
-            // Safe cleanup without cleanWs()
-            sh 'rm -f kubeconfig.yaml || true'
-            script {
-                echo "Cleaning up workspace files..."
-                deleteDir()  // Safer alternative to cleanWs()
-            }
-        }
         success {
             echo "Pipeline succeeded! Access your app at: http://<node-ip>:30008"
         }
