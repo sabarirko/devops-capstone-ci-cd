@@ -4,16 +4,18 @@ pipeline {
     environment {
         DOCKER_IMAGE = "sabarirko/web-app"
         DOCKER_TAG = "${env.BUILD_ID}"
-        DOCKER_BUILDKIT = "1"
+        DOCKER_BUILDKIT = "0" // Disable BuildKit to avoid buildx error
     }
 
     stages {
-        stage('Setup Environment') {
+        stage('Verify Tools') {
             steps {
                 script {
                     sh '''
                         echo "=== Docker Version Check ==="
                         docker --version
+                        git --version
+                        kubectl version --client=true
                     '''
                 }
             }
@@ -25,7 +27,7 @@ pipeline {
             }
         }
 
-        stage('Build') {
+        stage('Build Docker Image') {
             steps {
                 script {
                     try {
@@ -36,13 +38,13 @@ pipeline {
                               .
                         """
                     } catch (Exception e) {
-                        error("Docker build failed: ${e.message}")
+                        error("❌ Docker build failed: ${e.message}")
                     }
                 }
             }
         }
 
-        stage('Push') {
+        stage('Push to Docker Hub') {
             steps {
                 withCredentials([usernamePassword(
                     credentialsId: 'docker-hub-creds',
@@ -57,14 +59,14 @@ pipeline {
                                 docker push ${DOCKER_IMAGE}:latest
                             """
                         } catch (Exception e) {
-                            error("Docker push failed: ${e.message}")
+                            error("❌ Docker push failed: ${e.message}")
                         }
                     }
                 }
             }
         }
 
-        stage('Deploy') {
+        stage('Deploy to Kubernetes') {
             steps {
                 withCredentials([file(credentialsId: 'kubeconfig-secret', variable: 'KUBECONFIG')]) {
                     script {
@@ -76,7 +78,7 @@ pipeline {
                                 kubectl rollout status deployment/web-app --timeout=2m
                             """
                         } catch (Exception e) {
-                            error("Kubernetes deployment failed: ${e.message}")
+                            error("❌ Kubernetes deployment failed: ${e.message}")
                         }
                     }
                 }
