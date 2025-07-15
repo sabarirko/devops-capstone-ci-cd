@@ -1,17 +1,13 @@
 pipeline {
-    agent any
+    agent any  // This provides node context for the entire pipeline
     
     environment {
-        // Docker configuration
         DOCKER_IMAGE = "sabarirko/web-app"
         DOCKER_TAG = "${env.BUILD_ID}"
-        
-        // Kubernetes configuration (using secret text credential)
         KUBECONFIG = credentials('kubeconfig-secret')  // Your credential ID
     }
     
     stages {
-        // ===== VERIFICATION STAGE =====
         stage('Verify Tools') {
             steps {
                 script {
@@ -25,14 +21,12 @@ pipeline {
             }
         }
 
-        // ===== CHECKOUT CODE =====
         stage('Checkout') {
             steps {
                 checkout scm
             }
         }
 
-        // ===== BUILD DOCKER IMAGE =====
         stage('Build') {
             steps {
                 script {
@@ -41,7 +35,6 @@ pipeline {
             }
         }
 
-        // ===== PUSH TO DOCKER HUB =====
         stage('Push') {
             steps {
                 withCredentials([usernamePassword(
@@ -59,28 +52,17 @@ pipeline {
             }
         }
 
-        // ===== KUBERNETES DEPLOYMENT =====
         stage('Deploy') {
             steps {
                 script {
-                    // Write kubeconfig to file
                     writeFile file: 'kubeconfig.yaml', text: "${env.KUBECONFIG}"
-                    
                     sh '''
-                        # Set temporary kubeconfig
                         export KUBECONFIG=kubeconfig.yaml
-                        
-                        # Verify cluster access
                         kubectl cluster-info
-                        kubectl get nodes
-                        
-                        # Apply manifests
                         kubectl apply -f deployment.yaml
                         kubectl apply -f service.yaml
-                        
-                        # Verify deployment
                         kubectl rollout status deployment/web-app --timeout=2m
-                        kubectl get svc -o wide
+                        rm -f kubeconfig.yaml
                     '''
                 }
             }
@@ -89,9 +71,12 @@ pipeline {
     
     post {
         always {
-            // Cleanup
+            // Safe cleanup without cleanWs()
             sh 'rm -f kubeconfig.yaml || true'
-            cleanWs()
+            script {
+                echo "Cleaning up workspace files..."
+                deleteDir()  // Safer alternative to cleanWs()
+            }
         }
         success {
             echo "Pipeline succeeded! Access your app at: http://<node-ip>:30008"
