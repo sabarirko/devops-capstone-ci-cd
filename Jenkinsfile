@@ -2,31 +2,100 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = "sabarirko/web-app:${BUILD_ID}"
+        DOCKER_IMAGE = "sabarirko/web-app"
+        DOCKER_TAG = "${env.BUILD_ID}"
+        DOCKER_BUILDKIT = "1"
     }
 
     stages {
-        stage('Verify Tools') {
+        stage('Setup Environment') {
             steps {
                 script {
-                    echo "=== Verifying Tools ==="
-                    sh 'git --version'
-                    sh 'docker --version'
-                    sh 'kubectl version --client=true'
+                    sh '''
+                        echo "=== Docker Version Check ==="
+                        docker --version
+                    '''
                 }
             }
         }
 
         stage('Checkout') {
             steps {
-                git 'https://github.com/sabarirko/website.git'
+                checkout scm
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Build') {
             steps {
-                sh "docker build -t ${DOCKER_IMAGE} ."
+                script {
+                    try {
+                        sh """
+                            docker build \
+                              -t ${DOCKER_IMAGE}:${DOCKER_TAG} \
+                              -t ${DOCKER_IMAGE}:latest \
+                              .
+                        """
+                    } catch (Exception e) {
+                        error("Docker build failed: ${e.message}")
+                    }
+                }
             }
         }
 
-        stage('Push to Do
+        stage('Push') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'docker-hub-creds',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    script {
+                        try {
+                            sh """
+                                echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                                docker push ${DOCKER_IMAGE}:${DOCKER_TAG}
+                                docker push ${DOCKER_IMAGE}:latest
+                            """
+                        } catch (Exception e) {
+                            error("Docker push failed: ${e.message}")
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                withCredentials([file(credentialsId: 'kubeconfig-secret', variable: 'KUBECONFIG')]) {
+                    script {
+                        try {
+                            sh """
+                                export KUBECONFIG=${KUBECONFIG}
+                                kubectl apply -f deployment.yaml
+                                kubectl apply -f service.yaml
+                                kubectl rollout status deployment/web-app --timeout=2m
+                            """
+                        } catch (Exception e) {
+                            error("Kubernetes deployment failed: ${e.message}")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ SUCCESS: App deployed to Kubernetes!"
+            script {
+                sh """
+                    export KUBECONFIG=${KUBECONFIG}
+                    echo "Access your app at: http://\$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[0].address}'):30008"
+                """
+            }
+        }
+        failure {
+            echo "❌ FAILURE: Check pipeline logs for details."
+        }
+    }
+}
