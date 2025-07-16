@@ -1,7 +1,5 @@
-FROM node:14  # Base image for the app
-WORKDIR /app
-COPY package*.json ./
-RUN npm install
-COPY . .
-EXPOSE 3000   # Assuming the app runs on port 3000
-CMD ["npm", "start"]
+FROM ubuntu
+RUN apt update
+RUN apt-get install apache2 -y
+ADD . /var/www/html
+ENTRYPOINT apachectl -D FOREGROUND
