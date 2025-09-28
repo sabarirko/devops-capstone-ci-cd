@@ -48,4 +48,12 @@ The goal was to automate **build, test, containerization, and deployment** using
 
 6. **Infrastructure Automation**  
    - Used **Terraform** to provision AWS infrastructure.  
-   - Applied **Ansible** for software installation & configuration management across nodes.  
+   - Applied **Ansible** for software installation & configuration management across nodes.
+
+---
+
+## ✅ Outcomes
+- Automated **CI/CD pipeline** with Jenkins.  
+- Scalable deployment on **Kubernetes cluster**.  
+- Infrastructure provisioned via **Terraform**.  
+- Improved efficiency of development-to-deployment lifecycle.
