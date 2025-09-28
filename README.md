@@ -8,7 +8,7 @@ The goal was to automate **build, test, containerization, and deployment** using
 
 ## 🛠️ Tools & Technologies
 - **Version Control:** Git, GitHub  
-- **CI/CD:** Jenkins, AWS CodeBuild  
+- **CI/CD:** Jenkins
 - **Containerization:** Docker  
 - **Orchestration:** Kubernetes  
 - **Infrastructure as Code:** Terraform  
