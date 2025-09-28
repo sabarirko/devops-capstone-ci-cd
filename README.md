@@ -18,8 +18,7 @@ The goal was to automate **build, test, containerization, and deployment** using
 ---
 
 ## ⚙️ Architecture
-![Architecture Diagram](screenshots/architecture.png)  
-*(Replace with your architecture diagram or screenshot of pipeline)*  
+![Architecture Diagram](screenshots/devops_capstone_pipeline_v2.png)  
 
 ---
 
