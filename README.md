@@ -28,7 +28,7 @@ The goal was to automate **build, test, containerization, and deployment** using
    - Release cycle: `develop` branch for testing, `master` branch for production.  
 
 2. **Build & Test**  
-   - Configured **AWS CodeBuild** to trigger builds automatically on commits.  
+   - Configured **Jenkins** to trigger builds automatically on commits.  
    - Validated application before deployment.  
 
 3. **Dockerization**  
